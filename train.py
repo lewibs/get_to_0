@@ -2,7 +2,7 @@ from model import Agent
 import random
 import matplotlib.pyplot as plt
 
-TRAIN_LOOPS = 1000
+TRAIN_LOOPS = 500
 
 model = Agent()
 
@@ -58,5 +58,5 @@ for i in range(TRAIN_LOOPS):
     numbers.append(rand)
     noramlized.append(abs(rand/steps))
 
-plot_normalized_values(step_counts)
+plot_normalized_values(noramlized)
 

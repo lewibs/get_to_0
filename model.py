@@ -7,28 +7,28 @@ import math
 # Q[(s, a)] += alpha * (r + gamma * max(Q[(s', a')]) - Q[(s, a)])
 
 VALUE_MAP = [-1, 1]
-EPSILON = 0.70
+EPSILON = 0.50
 EPSILON_DECAY = 0.001
-MEMORY = 100
-BATCH = 10
+MEMORY = 100000
+BATCH = 1000
 MAX_STEPS = 50
 GAMMA = 0.9
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.9
 TARGET_UPDATE = 10
 GRAD_CLIP = 10
 
 class SkipNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = torch.nn.Linear(2, 2)
-        self.fc2 = torch.nn.Linear(2, 2)
-        self.fc3 = torch.nn.Linear(2, 2)
+        self.fc1 = torch.nn.Linear(2, 64)  # Input layer to hidden layer
+        self.fc2 = torch.nn.Linear(64, 64)  # Hidden layer to hidden layer
+        self.fc3 = torch.nn.Linear(64, 2)   # Hidden layer to output layer
 
     def forward(self, x):
-        x = torch.nn.functional.relu(self.fc1(x))
-        x = torch.nn.functional.relu(self.fc2(x))
-        x = torch.nn.functional.relu(self.fc3(x))
-        x = torch.nn.functional.softmax(x, dim=1)
+        x = torch.nn.functional.relu(self.fc1(x))  # Apply ReLU activation
+        x = torch.nn.functional.relu(self.fc2(x))  # Apply ReLU activation
+        x = self.fc3(x)  # Linear transformation
+        x = torch.nn.functional.softmax(x, dim=1)  # Softmax activation for output layer
         return x
 
 class Agent():
@@ -74,12 +74,12 @@ class Agent():
 
         if next_state[0][1].item() == 0:
             done = 1
-            reward = 100
+            reward = 0
             for i, memory in enumerate(reversed(self.current_memory)):
                 memory[3] += 1 / (i+1)
         elif step > MAX_STEPS:
             done = 1
-            reward = -100
+            reward = 0
             for i, memory in enumerate(reversed(self.current_memory)):
                 memory[3] -= 1 / (i+1)
         else:
@@ -93,7 +93,7 @@ class Agent():
                     # Punish the agent for getting further away from 0
                     reward = -math.tanh(distance_new)
 
-                reward *= 5
+                reward *= 2
 
         done = torch.tensor([[done]]).cpu().int()
         reward = torch.tensor([[reward]]).float().cpu()
