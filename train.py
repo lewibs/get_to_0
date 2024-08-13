@@ -29,14 +29,15 @@ def plot_normalized_values(normalized, title='Normalized Values Plot', xlabel='I
 
 def game(model, start_value):
     steps = 0
-    while start_value != 0:
-        start_value = model.step(start_value)
+    done = 0
+    while done == 0:
+        start_value, done = model.step(start_value, steps)
         steps += 1
     
     return start_value, steps
 
 def get_start_number(start, end):
-    rand = random.randint(-100,100)
+    rand = random.randint(start,end)
     if rand == 0:
         return get_start_number(start, end)
     return rand
@@ -46,14 +47,16 @@ numbers = []
 noramlized = []
 
 for i in range(TRAIN_LOOPS):
-    print(f"Game number is {i}")
+    print("\n")
+    print(f"Game {i}:")
     rand = get_start_number(-10, 10)
     print(f"Starting game at {rand}")
+    print(f"Epsilon is {model.epsilon}")
     end_value, steps = game(model, rand)
-    print(f"Game done reached {end_value} in {steps} steps")
+    print(f"Game reached {end_value} in {steps} steps")
     step_counts.append(steps)
     numbers.append(rand)
-    noramlized.append(rand/steps)
+    noramlized.append(abs(rand/steps))
 
-plot_normalized_values(noramlized)
+plot_normalized_values(step_counts)
 
