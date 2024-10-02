@@ -16,23 +16,25 @@ GAMMA = 0.9
 LEARNING_RATE = 0.9
 TARGET_UPDATE = 10
 GRAD_CLIP = 10
+TARGET = 0
 
 class SkipNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = torch.nn.Linear(2, 64)  # Input layer to hidden layer
-        self.fc2 = torch.nn.Linear(64, 64)  # Hidden layer to hidden layer
-        self.fc3 = torch.nn.Linear(64, 2)   # Hidden layer to output layer
+        self.fc1 = torch.nn.Linear(1, 1)  # Input layer to hidden layer
+        self.fc2 = torch.nn.Linear(1, 1)  # Hidden layer to hidden layer
+        self.fc3 = torch.nn.Linear(1, 2)   # Hidden layer to output layer
 
     def forward(self, x):
+        print(x)
         x = torch.nn.functional.relu(self.fc1(x))  # Apply ReLU activation
         x = torch.nn.functional.relu(self.fc2(x))  # Apply ReLU activation
-        x = self.fc3(x)  # Linear transformation
-        x = torch.nn.functional.softmax(x, dim=1)  # Softmax activation for output layer
+        x = torch.nn.functional.relu(self.fc3(x))  # Apply ReLU activation
         return x
 
 class Agent():
     def __init__(self):
+        # what is the point of having two memories?
         self.current_memory = []
         self.memory = deque(maxlen=MEMORY)
         self.policy_net = SkipNN()
@@ -47,53 +49,40 @@ class Agent():
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
     def step(self, number, step): #state action next_state reward done
-        state = torch.tensor([[number//abs(number), number]]).float().cpu()
+        state = torch.tensor([number]).float().cpu()
 
         r = random.random()
         if r < self.epsilon:
+            #TODO this may be wrong... look into how this works.
             possible_options = [abs(number + value) for value in VALUE_MAP]
             min_index = possible_options.index(min(possible_options))
-            output = torch.zeros(1,2)
-            output[0][min_index] = 1
+            output = torch.zeros(2)
+            output[min_index] = 1
         else:
             output = self.policy_net(state)
 
         delta = self.translate(output)
-        delta = torch.tensor([[delta]]).float().cpu()
         next_state = state.clone()
-        first_num = state[0][1].item()
-        second_num = first_num + delta
-        next_state[0][1] = second_num
-        if second_num > 0:
-            next_state[0][0] = 0
-        else:
-            next_state[0][0] = 1
+        first_num = state.clone()
+        next_state = first_num + delta
 
         done = 0
         reward = 0
 
-        if next_state[0][1].item() == 0:
+        if next_state.item() == TARGET:
             done = 1
-            reward = 0
-            for i, memory in enumerate(reversed(self.current_memory)):
-                memory[3] += 1 / (i+1)
+            reward = 10
         elif step > MAX_STEPS:
             done = 1
             reward = 0
-            for i, memory in enumerate(reversed(self.current_memory)):
-                memory[3] -= 1 / (i+1)
         else:
-                distance_old = abs(first_num)
-                distance_new = abs(second_num)
+            next_diff = abs(TARGET - next_state.item())
+            current_diff = abs(TARGET - state.item())
 
-                if distance_new < distance_old:
-                    # Reward the agent for getting closer to 0
-                    reward = math.tanh(1 / (distance_new + 1e-6))
-                else:
-                    # Punish the agent for getting further away from 0
-                    reward = -math.tanh(distance_new)
-
-                reward *= 2
+            if current_diff > next_diff:
+                reward = 1
+            else:
+                reward = -1
 
         done = torch.tensor([[done]]).cpu().int()
         reward = torch.tensor([[reward]]).float().cpu()
@@ -107,7 +96,7 @@ class Agent():
             self.current_memory = []
 
         self.train()
-        return int(next_state[0][1].item()), done.item()
+        return int(next_state.item()), done.item()
 
     def train(self):
         if len(self.memory) < BATCH:
@@ -142,7 +131,11 @@ class Agent():
         self.optimizer.step()
 
     def translate(self, model_output):
-        max_index = torch.argmax(model_output)
-        return VALUE_MAP[max_index.item()]
+        delta = 0
+        if torch.sum(model_output) != 0:
+            max_index = torch.argmax(model_output)
+            delta = VALUE_MAP[max_index.item()]
+
+        return torch.tensor([[delta]]).float().cpu()
 
 

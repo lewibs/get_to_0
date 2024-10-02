@@ -27,6 +27,8 @@ def plot_normalized_values(normalized, title='Normalized Values Plot', xlabel='I
     # Display the plot
     plt.show()
 
+moves = []
+
 def game(model, start_value):
     steps = 0
     done = 0
