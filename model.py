@@ -21,15 +21,10 @@ TARGET = 0
 class SkipNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = torch.nn.Linear(1, 1)  # Input layer to hidden layer
-        self.fc2 = torch.nn.Linear(1, 1)  # Hidden layer to hidden layer
-        self.fc3 = torch.nn.Linear(1, 2)   # Hidden layer to output layer
+        self.fc1 = torch.nn.Linear(1, 2)  # Input layer to hidden layer
 
     def forward(self, x):
-        print(x)
         x = torch.nn.functional.relu(self.fc1(x))  # Apply ReLU activation
-        x = torch.nn.functional.relu(self.fc2(x))  # Apply ReLU activation
-        x = torch.nn.functional.relu(self.fc3(x))  # Apply ReLU activation
         return x
 
 class Agent():
@@ -86,7 +81,7 @@ class Agent():
 
         done = torch.tensor([[done]]).cpu().int()
         reward = torch.tensor([[reward]]).float().cpu()
-        self.current_memory.append([state, output, next_state, reward, done])
+        self.current_memory.append([state, torch.argmax(output), next_state, reward, done])
 
         if done.item() == 1:
             self.decay_epsilon()
@@ -101,27 +96,27 @@ class Agent():
     def train(self):
         if len(self.memory) < BATCH:
             return  # Not enough samples to train
+
+        # Sample a batch of experiences from memory
         sample = random.sample(self.memory, BATCH)
         state, action, next_state, reward, done = zip(*sample)
 
+        # Convert lists to tensors
+        state_batch = torch.cat(state).reshape(BATCH, 1)
+        action_batch = torch.stack(action)
+        next_state_batch = torch.stack(next_state)
+        reward_batch = torch.cat(reward)
 
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, next_state))).cpu().bool()
-        non_final_next_states = torch.cat([s for s in next_state if s is not None])
-        state_batch = torch.cat(state).squeeze()
-        action_batch = torch.cat(action).squeeze()
-        reward_batch = torch.cat(reward).squeeze()
+        # Compute the Q values from the current policy
+        policy_action_values = self.policy_net(state_batch)
 
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch.long())
-
-        next_state_values = torch.zeros(BATCH).cpu()
-        with torch.no_grad():
-            next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1).values
-        # Compute the expected Q values
-        expected_state_action_values = (next_state_values * GAMMA) + reward_batch
+        # Initialize target Q values
+        target_next_action_batch = self.target_net(next_state_batch).max(1).values  # Use max action values for next state
+        expected_state_action_values = reward_batch + (GAMMA * target_next_action_batch)  # Calculate expected Q values
 
         # Compute Huber loss
         criterion = torch.nn.SmoothL1Loss()
-        loss = criterion(state_action_values, expected_state_action_values.unsqueeze(1))
+        loss = criterion(policy_action_values.gather(1, action_batch.unsqueeze(1)), expected_state_action_values.unsqueeze(1))  # Gather Q values for actions taken
 
         # Optimize the model
         self.optimizer.zero_grad()
