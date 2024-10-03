@@ -6,7 +6,7 @@ import math
 
 # Q[(s, a)] += alpha * (r + gamma * max(Q[(s', a')]) - Q[(s, a)])
 
-VALUE_MAP = [-1, 1]
+VALUE_MAP = [-2, 3]
 EPSILON = 0.90
 EPSILON_DECAY = 0.001
 MEMORY = 5000
@@ -21,10 +21,15 @@ TRAIN_LOOPS = 500
 class SkipNN(torch.nn.Module):
     def __init__(self):
         super().__init__()
-        self.fc1 = torch.nn.Linear(1, 2)  # Input layer to hidden layer
+        self.fc1 = torch.nn.Linear(1, 1)  # Input layer to hidden layer
+        self.fc2 = torch.nn.Linear(1, 1)
+        self.fc3 = torch.nn.Linear(1, 2)
+
 
     def forward(self, x):
         x = torch.nn.functional.relu(self.fc1(x))  # Apply ReLU activation
+        x = torch.nn.functional.relu(self.fc2(x))
+        x = torch.nn.functional.relu(self.fc3(x)) 
         return x
 
 class Agent():
