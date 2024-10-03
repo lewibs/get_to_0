@@ -7,16 +7,16 @@ import math
 # Q[(s, a)] += alpha * (r + gamma * max(Q[(s', a')]) - Q[(s, a)])
 
 VALUE_MAP = [-1, 1]
-EPSILON = 0.50
+EPSILON = 0.90
 EPSILON_DECAY = 0.001
-MEMORY = 100000
-BATCH = 1000
-MAX_STEPS = 50
-GAMMA = 0.9
-LEARNING_RATE = 0.9
+MEMORY = 5000
+BATCH = 100
+GAMMA = 0.5
+LEARNING_RATE = 0.5
 TARGET_UPDATE = 10
 GRAD_CLIP = 10
 TARGET = 0
+TRAIN_LOOPS = 500
 
 class SkipNN(torch.nn.Module):
     def __init__(self):
@@ -43,7 +43,7 @@ class Agent():
     def update_target_net(self):
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def step(self, number, step): #state action next_state reward done
+    def step(self, number, step, max_steps): #state action next_state reward done
         state = torch.tensor([number]).float().cpu()
 
         r = random.random()
@@ -67,7 +67,7 @@ class Agent():
         if next_state.item() == TARGET:
             done = 1
             reward = 10
-        elif step > MAX_STEPS:
+        elif step > max_steps:
             done = 1
             reward = 0
         else:
